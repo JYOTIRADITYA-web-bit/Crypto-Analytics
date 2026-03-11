@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-import sqlite3
+import mysql.connector
 import plotly.express as px
 from streamlit_autorefresh import st_autorefresh
 from prophet import Prophet
@@ -32,7 +32,7 @@ WHERE timestamp = (
 trend_query = """
 SELECT coin_name, price, timestamp
 FROM crypto_prices
-WHERE timestamp >= datetime('now','-1 day')
+WHERE timestamp >= NOW() - INTERVAL 1 DAY
 ORDER BY timestamp
 """
 
@@ -41,13 +41,23 @@ ORDER BY timestamp
 # ---------------------------------
 @st.cache_data
 def load_latest_data():
-    connection = sqlite3.connect("crypto_data.db")
+    connection = mysql.connector.connect(
+        host="127.0.0.1",
+        user="root",
+        password="Ifdxrmf4j9#123",
+        database="crypto_project"
+    )
     return pd.read_sql(latest_query, connection)
 
 
 @st.cache_data
 def load_trend_data():
-    connection = sqlite3.connect("crypto_data.db")
+    connection = mysql.connector.connect(
+        host="127.0.0.1",
+        user="root",
+        password="Ifdxrmf4j9#123",
+        database="crypto_project"
+    )
     return pd.read_sql(trend_query, connection)
 
 
