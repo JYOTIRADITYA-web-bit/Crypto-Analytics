@@ -1,6 +1,14 @@
+
 streamlit
 pandas
 plotly
 requests
 prophet
 streamlit-autorefresh
+=======
+streamlit
+pandas
+mysql-connector-python
+plotly
+streamlit-autorefresh
+prophet
