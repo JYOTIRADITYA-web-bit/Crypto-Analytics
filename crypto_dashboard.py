@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-import sqlite3
+import mysql.connector
 import plotly.express as px
 from streamlit_autorefresh import st_autorefresh
 from prophet import Prophet
@@ -18,24 +18,6 @@ st.set_page_config(page_title="Crypto Analytics Dashboard", layout="wide")
 st.title("🚀 Crypto Analytics Dashboard")
 
 # ---------------------------------
-# DATABASE CONNECTION
-# ---------------------------------
-conn = sqlite3.connect("crypto_data.db", check_same_thread=False)
-
-# Create table if it doesn't exist
-conn.execute("""
-CREATE TABLE IF NOT EXISTS crypto_prices (
-    coin_name TEXT,
-    price REAL,
-    market_cap REAL,
-    volume REAL,
-    timestamp DATETIME
-)
-""")
-
-conn.commit()
-
-# ---------------------------------
 # SQL QUERIES
 # ---------------------------------
 latest_query = """
@@ -50,36 +32,37 @@ WHERE timestamp = (
 trend_query = """
 SELECT coin_name, price, timestamp
 FROM crypto_prices
-WHERE timestamp >= datetime('now','-1 day')
+WHERE timestamp >= NOW() - INTERVAL 1 DAY
 ORDER BY timestamp
 """
 
 # ---------------------------------
-# LOAD DATA
+# LOAD DATA (CACHED)
 # ---------------------------------
 @st.cache_data
 def load_latest_data():
-    try:
-        return pd.read_sql(latest_query, conn)
-    except:
-        return pd.DataFrame()
+    connection = mysql.connector.connect(
+        host="127.0.0.1",
+        user="root",
+        password="Ifdxrmf4j9#123",
+        database="crypto_project"
+    )
+    return pd.read_sql(latest_query, connection)
+
 
 @st.cache_data
 def load_trend_data():
-    try:
-        return pd.read_sql(trend_query, conn)
-    except:
-        return pd.DataFrame()
+    connection = mysql.connector.connect(
+        host="127.0.0.1",
+        user="root",
+        password="Ifdxrmf4j9#123",
+        database="crypto_project"
+    )
+    return pd.read_sql(trend_query, connection)
+
 
 df = load_latest_data()
 trend_df = load_trend_data()
-
-# ---------------------------------
-# EMPTY DATABASE CHECK
-# ---------------------------------
-if df.empty:
-    st.warning("No crypto data available yet. Let the data collector run.")
-    st.stop()
 
 # ---------------------------------
 # SIDEBAR FILTERS
@@ -132,7 +115,6 @@ col4.metric(
 col1, col2 = st.columns(2)
 
 with col1:
-
     st.subheader("Market Cap by Cryptocurrency")
 
     fig1 = px.bar(
@@ -145,7 +127,6 @@ with col1:
     st.plotly_chart(fig1, use_container_width=True)
 
 with col2:
-
     st.subheader("Trading Volume")
 
     fig2 = px.bar(
@@ -172,7 +153,7 @@ fig3 = px.bar(
 st.plotly_chart(fig3, use_container_width=True)
 
 # ---------------------------------
-# MARKET DOMINANCE PIE
+# MARKET DOMINANCE PIE CHART
 # ---------------------------------
 st.subheader("Crypto Market Dominance")
 
@@ -187,7 +168,7 @@ fig4 = px.pie(
 st.plotly_chart(fig4, use_container_width=True)
 
 # ---------------------------------
-# PRICE TREND
+# PRICE TREND LINE CHART
 # ---------------------------------
 st.subheader("Crypto Price Trend Over Time")
 
@@ -203,7 +184,7 @@ fig5 = px.line(
 st.plotly_chart(fig5, use_container_width=True)
 
 # ---------------------------------
-# FORECAST
+# FORECAST SECTION
 # ---------------------------------
 st.subheader(f"{forecast_coin} Price Forecast")
 
@@ -231,15 +212,17 @@ if len(coin_df) > 20:
     st.plotly_chart(fig_forecast, use_container_width=True)
 
 else:
-
-    st.info("Not enough data yet for forecasting.")
+    st.info("Not enough data yet for forecasting. Let the data collector run longer.")
 
 # ---------------------------------
-# PRICE CHANGE
+# PRICE CHANGE CALCULATION
 # ---------------------------------
 trend_df = trend_df.sort_values(["coin_name", "timestamp"])
 
+trend_df["price_change"] = trend_df.groupby("coin_name")["price"].diff()
+
 trend_df["pct_change"] = trend_df.groupby("coin_name")["price"].pct_change() * 100
+
 trend_df["pct_change"] = trend_df["pct_change"].round(2)
 
 latest_changes = trend_df.groupby("coin_name").tail(1)
@@ -262,11 +245,17 @@ col1, col2 = st.columns(2)
 
 with col1:
     st.markdown("### 🟢 Top Gainers")
-    st.dataframe(top_gainers[["coin_name", "price", "pct_change"]])
+
+    st.dataframe(
+        top_gainers[["coin_name", "price", "pct_change"]]
+    )
 
 with col2:
     st.markdown("### 🔴 Top Losers")
-    st.dataframe(top_losers[["coin_name", "price", "pct_change"]])
+
+    st.dataframe(
+        top_losers[["coin_name", "price", "pct_change"]]
+    )
 
 # ---------------------------------
 # MARKET INSIGHTS
@@ -278,12 +267,14 @@ top_marketcap = filtered_df.sort_values(
     ascending=False
 ).head(5)
 
+st.write("Top 5 Coins by Market Cap")
+
 st.dataframe(
     top_marketcap[["coin_name", "price", "market_cap", "volume"]]
 )
 
 # ---------------------------------
-# DATASET TABLE
+# FULL DATASET
 # ---------------------------------
 st.subheader("Full Cryptocurrency Dataset")
 
@@ -293,4 +284,4 @@ st.dataframe(filtered_df)
 # FOOTER
 # ---------------------------------
 st.markdown("---")
-st.caption("Crypto Analytics Dashboard | Built with Python, SQLite & Streamlit")
+st.caption("Crypto Analytics Dashboard | Built with Python, MySQL & Streamlit")

@@ -5,6 +5,6 @@ plotly
 requests
 prophet
 streamlit-autorefresh
-
+mysql.connector
 
 
