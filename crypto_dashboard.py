@@ -39,7 +39,7 @@ ORDER BY timestamp
 # ---------------------------------
 # LOAD DATA (CACHED)
 # ---------------------------------
-@st.cache_data
+@st.cache_data(ttl=60)
 def load_latest_data():
     connection = mysql.connector.connect(
         host="127.0.0.1",
@@ -50,7 +50,7 @@ def load_latest_data():
     return pd.read_sql(latest_query, connection)
 
 
-@st.cache_data
+@st.cache_data(ttl=60)
 def load_trend_data():
     connection = mysql.connector.connect(
         host="127.0.0.1",

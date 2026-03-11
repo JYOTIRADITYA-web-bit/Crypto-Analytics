@@ -1,144 +1,143 @@
-
 import requests
 import pandas as pd
 import mysql.connector
 import time
 from datetime import datetime
 
-# API URL
+# ---------------------------------
+# MYSQL CONNECTION FUNCTION
+# ---------------------------------
+
+def connect_db():
+
+    return mysql.connector.connect(
+        host="127.0.0.1",
+        user="root",
+        password="Ifdxrmf4j9#123",
+        database="crypto_project"
+    )
+
+
+conn = connect_db()
+cursor = conn.cursor()
+
+print("Connected to MySQL")
+
+# ---------------------------------
+# API SETTINGS
+# ---------------------------------
+
 url = "https://api.coingecko.com/api/v3/coins/markets"
 
 params = {
     "vs_currency": "usd",
     "order": "market_cap_desc",
     "per_page": 10,
-    "page": 1
+    "page": 1,
+    "sparkline": "false"
 }
 
-# Database connection
-conn = mysql.connector.connect(
-    host="127.0.0.1",
-    user="root",
-    password="Ifdxrmf4j9#123",
-    database="crypto_project"
-)
+headers = {
+    "User-Agent": "crypto-dashboard"
+}
 
-cursor = conn.cursor()
-
-print("Crypto data collector started...")
+# ---------------------------------
+# MAIN PIPELINE LOOP
+# ---------------------------------
 
 while True:
 
-    # Fetch API data
-    response = requests.get(url, params=params)
-    data = response.json()
+    try:
 
-    df = pd.DataFrame(data)
+        print("Fetching crypto data...")
 
-    df = df[[
-        "name",
-        "symbol",
-        "current_price",
-        "market_cap",
-        "total_volume"
-    ]]
-
-    df["timestamp"] = datetime.now()
-
-    # Insert into database
-    for index, row in df.iterrows():
-
-        query = """
-        INSERT INTO crypto_prices
-        (coin_name, symbol, price, market_cap, volume, timestamp)
-        VALUES (%s,%s,%s,%s,%s,%s)
-        """
-
-        values = (
-            row["name"],
-            row["symbol"],
-            row["current_price"],
-            row["market_cap"],
-            row["total_volume"],
-            row["timestamp"]
+        response = requests.get(
+            url,
+            params=params,
+            headers=headers,
+            timeout=10
         )
 
-        cursor.execute(query, values)
+        data = response.json()
 
-    conn.commit()
+        if isinstance(data, list):
 
-    print("Data inserted at:", datetime.now())
+            df = pd.DataFrame(data)
 
-    # Wait 5 minutes
+            required_cols = [
+                "name",
+                "symbol",
+                "current_price",
+                "market_cap",
+                "total_volume"
+            ]
 
-import requests
-import pandas as pd
-import mysql.connector
-import time
-from datetime import datetime
+            if all(col in df.columns for col in required_cols):
 
-# API URL
-url = "https://api.coingecko.com/api/v3/coins/markets"
+                df = df[required_cols]
 
-params = {
-    "vs_currency": "usd",
-    "order": "market_cap_desc",
-    "per_page": 10,
-    "page": 1
-}
+                df.columns = [
+                    "coin_name",
+                    "symbol",
+                    "price",
+                    "market_cap",
+                    "volume"
+                ]
 
-# Database connection
-conn = mysql.connector.connect(
-    host="127.0.0.1",
-    user="root",
-    password="Ifdxrmf4j9#123",
-    database="crypto_project"
-)
+                df["timestamp"] = datetime.now()
 
-cursor = conn.cursor()
+                # Insert rows
+                for _, row in df.iterrows():
 
-print("Crypto data collector started...")
+                    query = """
+                    INSERT INTO crypto_prices
+                    (coin_name, symbol, price, market_cap, volume, timestamp)
+                    VALUES (%s,%s,%s,%s,%s,%s)
+                    """
 
-while True:
+                    values = (
+                        row["coin_name"],
+                        row["symbol"],
+                        row["price"],
+                        row["market_cap"],
+                        row["volume"],
+                        row["timestamp"]
+                    )
 
-    # Fetch API data
-    response = requests.get(url, params=params)
-    data = response.json()
+                    cursor.execute(query, values)
 
-    df = pd.DataFrame(data)
+                conn.commit()
 
-    df = df[[
-        "name",
-        "symbol",
-        "current_price",
-        "market_cap",
-        "total_volume"
-    ]]
+                print("Data inserted at:", datetime.now())
 
-    df["timestamp"] = datetime.now()
+            else:
 
-    # Insert into database
-    for index, row in df.iterrows():
+                print("API columns changed:", df.columns)
 
-        query = """
-        INSERT INTO crypto_prices
-        (coin_name, symbol, price, market_cap, volume, timestamp)
-        VALUES (%s,%s,%s,%s,%s,%s)
-        """
+        else:
 
-        values = (
-            row["name"],
-            row["symbol"],
-            row["current_price"],
-            row["market_cap"],
-            row["total_volume"],
-            row["timestamp"]
-        )
+            print("API returned unexpected data:", data)
 
-        cursor.execute(query, values)
+    except mysql.connector.Error as db_error:
 
-    conn.commit()
+        print("Database error:", db_error)
 
-    print("Data inserted at:", datetime.now())
+        # reconnect database
+        conn = connect_db()
+        cursor = conn.cursor()
 
-    # Wait 5 minutes
+    except requests.exceptions.RequestException as api_error:
+
+        print("API connection error:", api_error)
+
+    except Exception as e:
+
+        print("Unexpected error:", e)
+
+    # ---------------------------------
+    # WAIT BEFORE NEXT FETCH
+    # ---------------------------------
+
+    print("Waiting 5 minutes...\n")
+
+    time.sleep(300)
