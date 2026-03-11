@@ -285,3 +285,25 @@ st.dataframe(filtered_df)
 # ---------------------------------
 st.markdown("---")
 st.caption("Crypto Analytics Dashboard | Built with Python, MySQL & Streamlit")
+
+st.subheader("⚙️ Data Pipeline Metrics")
+
+total_records = len(trend_df)
+
+latest_timestamp = trend_df["timestamp"].max()
+
+data_freshness = (
+    pd.Timestamp.now() - pd.to_datetime(latest_timestamp)
+).total_seconds() / 60
+
+col1, col2, col3, col4 = st.columns(4)
+
+col1.metric("Total Records", total_records)
+
+col2.metric("Unique Coins", trend_df["coin_name"].nunique())
+
+col3.metric(
+    "Latest Data",
+    latest_timestamp.strftime("%Y-%m-%d %H:%M")
+)
+col4.metric("Data Freshness (minutes)", round(data_freshness, 2))

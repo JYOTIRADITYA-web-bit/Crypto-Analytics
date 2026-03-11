@@ -70,7 +70,7 @@ while True:
     print("Data inserted at:", datetime.now())
 
     # Wait 5 minutes
-=======
+
 import requests
 import pandas as pd
 import mysql.connector
