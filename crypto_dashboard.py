@@ -18,6 +18,24 @@ st.set_page_config(page_title="Crypto Analytics Dashboard", layout="wide")
 st.title("🚀 Crypto Analytics Dashboard")
 
 # ---------------------------------
+# DATABASE CONNECTION
+# ---------------------------------
+conn = sqlite3.connect("crypto_data.db", check_same_thread=False)
+
+# Create table if it doesn't exist
+conn.execute("""
+CREATE TABLE IF NOT EXISTS crypto_prices (
+    coin_name TEXT,
+    price REAL,
+    market_cap REAL,
+    volume REAL,
+    timestamp DATETIME
+)
+""")
+
+conn.commit()
+
+# ---------------------------------
 # SQL QUERIES
 # ---------------------------------
 latest_query = """
@@ -41,16 +59,27 @@ ORDER BY timestamp
 # ---------------------------------
 @st.cache_data
 def load_latest_data():
-    conn = sqlite3.connect("crypto_data.db")
-    return pd.read_sql(latest_query, conn)
+    try:
+        return pd.read_sql(latest_query, conn)
+    except:
+        return pd.DataFrame()
 
 @st.cache_data
 def load_trend_data():
-    conn = sqlite3.connect("crypto_data.db")
-    return pd.read_sql(trend_query, conn)
+    try:
+        return pd.read_sql(trend_query, conn)
+    except:
+        return pd.DataFrame()
 
 df = load_latest_data()
 trend_df = load_trend_data()
+
+# ---------------------------------
+# EMPTY DATABASE CHECK
+# ---------------------------------
+if df.empty:
+    st.warning("No crypto data available yet. Let the data collector run.")
+    st.stop()
 
 # ---------------------------------
 # SIDEBAR FILTERS
@@ -98,11 +127,12 @@ col4.metric(
 )
 
 # ---------------------------------
-# MARKET CAP CHART
+# MARKET CAP + VOLUME CHARTS
 # ---------------------------------
 col1, col2 = st.columns(2)
 
 with col1:
+
     st.subheader("Market Cap by Cryptocurrency")
 
     fig1 = px.bar(
@@ -115,6 +145,7 @@ with col1:
     st.plotly_chart(fig1, use_container_width=True)
 
 with col2:
+
     st.subheader("Trading Volume")
 
     fig2 = px.bar(
@@ -141,7 +172,7 @@ fig3 = px.bar(
 st.plotly_chart(fig3, use_container_width=True)
 
 # ---------------------------------
-# MARKET DOMINANCE
+# MARKET DOMINANCE PIE
 # ---------------------------------
 st.subheader("Crypto Market Dominance")
 
@@ -200,6 +231,7 @@ if len(coin_df) > 20:
     st.plotly_chart(fig_forecast, use_container_width=True)
 
 else:
+
     st.info("Not enough data yet for forecasting.")
 
 # ---------------------------------
@@ -213,12 +245,18 @@ trend_df["pct_change"] = trend_df["pct_change"].round(2)
 latest_changes = trend_df.groupby("coin_name").tail(1)
 
 # ---------------------------------
-# TOP GAINERS / LOSERS
+# TOP GAINERS & LOSERS
 # ---------------------------------
 st.subheader("Top Gainers & Top Losers")
 
-top_gainers = latest_changes.sort_values(by="pct_change", ascending=False).head(5)
-top_losers = latest_changes.sort_values(by="pct_change").head(5)
+top_gainers = latest_changes.sort_values(
+    by="pct_change",
+    ascending=False
+).head(5)
+
+top_losers = latest_changes.sort_values(
+    by="pct_change"
+).head(5)
 
 col1, col2 = st.columns(2)
 
@@ -245,7 +283,7 @@ st.dataframe(
 )
 
 # ---------------------------------
-# DATA TABLE
+# DATASET TABLE
 # ---------------------------------
 st.subheader("Full Cryptocurrency Dataset")
 
